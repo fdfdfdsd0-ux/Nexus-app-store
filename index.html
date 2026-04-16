@@ -23,9 +23,6 @@
   <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   
-  <!-- EmailJS for sending verification codes -->
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-
   <style>
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -51,6 +48,27 @@
 
   <!-- APP ROOT -->
   <div id="app-root">
+
+  <!-- App Player Overlay (Runs apps inside the store) -->
+  <div id="app-player-overlay" class="fixed inset-0 z-[99999] hidden flex-col bg-black transition-opacity duration-300 opacity-0">
+    <div class="h-14 bg-slate-950 flex items-center justify-between px-4 border-b border-slate-800 shrink-0">
+      <div class="flex items-center gap-3 text-white">
+        <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-500 flex items-center justify-center">
+          <i class="ph-fill ph-play text-lg"></i>
+        </div>
+        <span id="app-player-title" class="font-bold text-sm tracking-wide">Running App</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="app-player-external" class="p-2 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-slate-800" title="Pop out to new tab">
+          <i class="ph-bold ph-arrow-square-out text-lg"></i>
+        </button>
+        <button data-click="closeAppPlayer" class="p-2 text-slate-400 hover:text-white hover:bg-red-500 transition-colors rounded-lg ml-2" title="Close App">
+          <i class="ph-bold ph-x text-xl"></i>
+        </button>
+      </div>
+    </div>
+    <iframe id="app-player-iframe" class="w-full flex-1 bg-white border-none" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
+  </div>
 
   <!-- Banned Overlay -->
   <div id="banned-overlay" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950 px-4">
@@ -626,9 +644,6 @@
       appId: "1:69260653568:web:4381084078ddecdffd54e5",
       measurementId: "G-KYY1FTGSQ1"
     };
-
-    // --- EMAILJS INIT (Required to send verification code without a server) ---
-    emailjs.init("TwVM6oQd-89_2HxjC"); 
 
     let db = null;
     let auth = null;
@@ -1668,14 +1683,46 @@
       const selectedVersionStr = window.selectedAppVersion || (app.versionHistory ? app.versionHistory[0].version : app.version);
       const activeVersionObj = history.find(v => v.version === selectedVersionStr) || history[0];
 
+      const playerOverlay = document.getElementById('app-player-overlay');
+      const iframe = document.getElementById('app-player-iframe');
+      const title = document.getElementById('app-player-title');
+      const externalBtn = document.getElementById('app-player-external');
+
+      title.textContent = app.title;
+
+      let targetUrl = '';
       if (activeVersionObj.payloadType === 'url' && activeVersionObj.appUrl) {
-        window.open(activeVersionObj.appUrl, '_blank', 'noopener,noreferrer');
+        targetUrl = activeVersionObj.appUrl;
       } else if (activeVersionObj.payloadType === 'code' && activeVersionObj.code) {
-        const blob = new Blob([activeVersionObj.code], { type: 'text/' + 'html' });
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        const blob = new Blob([activeVersionObj.code], { type: 'text/html' });
+        targetUrl = URL.createObjectURL(blob);
       }
+
+      if (targetUrl) {
+        iframe.src = targetUrl;
+        playerOverlay.classList.remove('hidden');
+        playerOverlay.classList.add('flex');
+        
+        // Fade in animation
+        setTimeout(() => playerOverlay.classList.remove('opacity-0'), 10);
+        
+        externalBtn.onclick = () => {
+            window.open(targetUrl, '_blank', 'noopener,noreferrer');
+            window.closeAppPlayer();
+        };
+      }
+    };
+
+    window.closeAppPlayer = () => {
+      const playerOverlay = document.getElementById('app-player-overlay');
+      const iframe = document.getElementById('app-player-iframe');
+      
+      playerOverlay.classList.add('opacity-0');
+      setTimeout(() => {
+         playerOverlay.classList.remove('flex');
+         playerOverlay.classList.add('hidden');
+         iframe.src = ''; // Wipe src to stop audio/execution
+      }, 300);
     };
 
     window.downloadApp = (appId) => {
@@ -2024,28 +2071,15 @@
         if (window.isAuthorizedAdmin) {
             navigate('admin');
         } else {
-            const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
-            
-            try {
-                emailjs.send("service_igvd2re", "template_k848kjb", {
-                    to_email: "bexlebeau30@students.cumberlandschools.org",
-                    message: "Your Admin Verification Code is: " + verifyCode
-                }).then(
-                    function(response) { console.log("SUCCESS!", response.status, response.text); }, 
-                    function(error) { console.log("FAILED...", error); }
-                );
-            } catch (err) {
-                console.log("EmailJS Error:", err);
-            }
-
             showPromptModal(
                 'Admin Authentication',
-                'A 6-digit verification code has been sent to your email.',
-                'Enter 6-digit code...',
-                'Verify',
+                'Please enter the master password to access the Admin Panel.',
+                'Enter password...',
+                'Login',
                 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/30',
                 (val, modalId) => {
-                    if (val === verifyCode) {
+                    // Static master password for admin panel
+                    if (val === 'admin') {
                         window.isAuthorizedAdmin = true;
                         localStorage.setItem('nexus_admin_verified', 'true');
                         document.getElementById(modalId).remove();
@@ -2054,7 +2088,7 @@
                         if (currentView === 'details' && selectedAppId) renderDetails(selectedAppId);
                     } else {
                         document.getElementById(modalId).remove();
-                        showModal('Access Denied', 'Incorrect verification code.');
+                        showModal('Access Denied', 'Incorrect password.');
                     }
                 }
             );
@@ -2658,6 +2692,7 @@
       else if (action === 'replyToMessage') window.replyToMessage(arg1, arg2);
       else if (action === 'showEditProfile') window.showEditProfile();
       else if (action === 'closeProfileModal') window.closeProfileModal();
+      else if (action === 'closeAppPlayer') window.closeAppPlayer();
       else if (action === 'closeModal') document.getElementById(arg1)?.remove();
       else if (action === 'profileLink') {
         if (window.currentUser && window.currentUser.customDisplayName) window.navigate('profile', window.currentUser.customDisplayName);
