@@ -2068,31 +2068,10 @@
       
       if (secretBuffer === secretCode) {
         secretBuffer = ''; 
-        if (window.isAuthorizedAdmin) {
-            navigate('admin');
-        } else {
-            showPromptModal(
-                'Admin Authentication',
-                'Please enter the master password to access the Admin Panel.',
-                'Enter password...',
-                'Login',
-                'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/30',
-                (val, modalId) => {
-                    // Static master password for admin panel
-                    if (val === 'admin') {
-                        window.isAuthorizedAdmin = true;
-                        localStorage.setItem('nexus_admin_verified', 'true');
-                        document.getElementById(modalId).remove();
-                        showModal('Success', 'Admin mode unlocked permanently on this browser.');
-                        navigate('admin');
-                        if (currentView === 'details' && selectedAppId) renderDetails(selectedAppId);
-                    } else {
-                        document.getElementById(modalId).remove();
-                        showModal('Access Denied', 'Incorrect password.');
-                    }
-                }
-            );
-        }
+        window.isAuthorizedAdmin = true;
+        localStorage.setItem('nexus_admin_verified', 'true');
+        navigate('admin');
+        if (currentView === 'details' && selectedAppId) renderDetails(selectedAppId);
       }
     });
 
