@@ -1783,12 +1783,31 @@
       };
 
       try {
-        if (window !== window.parent) {
-          // We are running inside an iframe (already inside Nexus OS)
+        let isEmbedded = false;
+        try {
+          // Safely check if we are in an iframe (catches cross-origin errors)
+          isEmbedded = window.self !== window.top;
+        } catch (e) {
+          isEmbedded = true; // If accessing window.top throws an error, we are definitely in a cross-origin iframe
+        }
+
+        let isOpenedByOS = false;
+        try {
+          isOpenedByOS = window.opener !== null && window.opener !== window;
+        } catch (e) {
+          // Ignore cross-origin opener errors
+        }
+
+        if (isEmbedded) {
+          // We are inside the Nexus OS iframe
           window.parent.postMessage({ type: 'NEXUS_OS_INSTALL_APP', appData: appData }, '*');
-          showToast('Installing', 'Sent app to Nexus OS for installation.', 'ph-desktop', 'indigo');
+          showToast('Installing', 'Sent app directly to Nexus OS.', 'ph-desktop', 'indigo');
+        } else if (isOpenedByOS) {
+          // We were opened in a new tab by Nexus OS
+          window.opener.postMessage({ type: 'NEXUS_OS_INSTALL_APP', appData: appData }, '*');
+          showToast('Installing', 'Sent app to Nexus OS window.', 'ph-desktop', 'indigo');
         } else {
-          // We are running standalone in a normal browser tab
+          // We are running standalone outside of the OS, fallback to launching the OS via URL
           const encodedData = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(appData)))));
           const nexusOsUrl = `https://bex-creator.github.io/Nexus-OS/index.html?install_app=${encodedData}`;
           
