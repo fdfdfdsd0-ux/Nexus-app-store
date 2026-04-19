@@ -1491,6 +1491,9 @@
                       <button data-click="downloadApp" data-arg="${app.id}" class="w-14 h-14 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-1 active:translate-y-0 flex-shrink-0 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white" title="Download .html">
                         <i class="ph ph-download-simple text-2xl"></i>
                       </button>
+                      <button data-click="sendToNexusOS" data-arg="${app.id}" class="w-14 h-14 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-1 active:translate-y-0 flex-shrink-0 flex items-center justify-center bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400" title="Install to Nexus OS">
+                        <i class="ph-bold ph-desktop text-2xl"></i>
+                      </button>
                       <button data-click="shareApp" data-arg="${escapeQuotes(app.title)}" class="w-14 h-14 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-1 active:translate-y-0 flex-shrink-0 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white" title="Share App">
                         <i class="ph ph-share-network text-2xl"></i>
                       </button>
@@ -1757,6 +1760,39 @@
       
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    };
+
+    window.sendToNexusOS = (appId) => {
+      const app = apps.find(a => a.id === appId);
+      if (!app) return;
+
+      let history = app.versionHistory || [{ version: app.version, payloadType: app.payloadType, code: app.code, appUrl: app.appUrl }];
+      const selectedVersionStr = window.selectedAppVersion || (app.versionHistory ? app.versionHistory[0].version : app.version);
+      const activeVersionObj = history.find(v => v.version === selectedVersionStr) || history[0];
+
+      logActivity('EXPORT', app.title, `Exported v${activeVersionObj.version} to Nexus OS.`);
+
+      const appData = {
+        id: app.id,
+        title: app.title,
+        developer: app.developer,
+        icon: app.icon || null,
+        payloadType: activeVersionObj.payloadType,
+        appUrl: activeVersionObj.payloadType === 'url' ? activeVersionObj.appUrl : null,
+        code: activeVersionObj.payloadType === 'code' ? activeVersionObj.code : null
+      };
+
+      try {
+        // Safely encode the JSON app payload for URL transfer
+        const encodedData = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(appData)))));
+        const nexusOsUrl = `https://bex-creator.github.io/Nexus-OS/index.html?install_app=${encodedData}`;
+        
+        window.open(nexusOsUrl, '_blank');
+        showToast('Exporting to Nexus OS', 'Opening Nexus OS to install the app...', 'ph-desktop', 'indigo');
+      } catch (err) {
+        console.error("Error encoding app data:", err);
+        showModal("Export Error", "Failed to package the app for Nexus OS.");
+      }
     };
 
     window.setReviewRating = (rating) => {
@@ -2655,6 +2691,7 @@
       else if (action === 'installApp') window.installApp(arg1);
       else if (action === 'runApp') window.runApp(arg1);
       else if (action === 'downloadApp') window.downloadApp(arg1);
+      else if (action === 'sendToNexusOS') window.sendToNexusOS(arg1);
       else if (action === 'shareApp') window.shareApp(arg1);
       else if (action === 'toggleFavorite') window.toggleFavorite(arg1);
       else if (action === 'deleteApp') window.deleteApp(arg1);
