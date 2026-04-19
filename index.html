@@ -1783,12 +1783,18 @@
       };
 
       try {
-        // Safely encode the JSON app payload for URL transfer
-        const encodedData = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(appData)))));
-        const nexusOsUrl = `https://bex-creator.github.io/Nexus-OS/index.html?install_app=${encodedData}`;
-        
-        window.open(nexusOsUrl, '_blank');
-        showToast('Exporting to Nexus OS', 'Opening Nexus OS to install the app...', 'ph-desktop', 'indigo');
+        if (window !== window.parent) {
+          // We are running inside an iframe (already inside Nexus OS)
+          window.parent.postMessage({ type: 'NEXUS_OS_INSTALL_APP', appData: appData }, '*');
+          showToast('Installing', 'Sent app to Nexus OS for installation.', 'ph-desktop', 'indigo');
+        } else {
+          // We are running standalone in a normal browser tab
+          const encodedData = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(appData)))));
+          const nexusOsUrl = `https://bex-creator.github.io/Nexus-OS/index.html?install_app=${encodedData}`;
+          
+          window.open(nexusOsUrl, '_blank');
+          showToast('Exporting to Nexus OS', 'Opening Nexus OS to install the app...', 'ph-desktop', 'indigo');
+        }
       } catch (err) {
         console.error("Error encoding app data:", err);
         showModal("Export Error", "Failed to package the app for Nexus OS.");
