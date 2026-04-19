@@ -1772,11 +1772,32 @@
 
       logActivity('EXPORT', app.title, `Exported v${activeVersionObj.version} to Nexus OS.`);
 
+      // Convert NexusStore app payload into an iframe-friendly URL format
+      let targetUrl = '';
+      if (activeVersionObj.payloadType === 'url' && activeVersionObj.appUrl) {
+        targetUrl = activeVersionObj.appUrl;
+      } else if (activeVersionObj.payloadType === 'code' && activeVersionObj.code) {
+        // Use a data URI so it works safely across cross-origin iframe boundaries
+        targetUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(activeVersionObj.code);
+      }
+
+      // Clean up Phosphor icon class to a simple icon name string
+      let simpleIcon = 'app-window';
+      if (app.iconClass) {
+        const parts = app.iconClass.split(' ');
+        const mainIcon = parts.find(p => p.startsWith('ph-') && p !== 'ph-fill' && p !== 'ph-bold');
+        if (mainIcon) simpleIcon = mainIcon.replace('ph-', '');
+      }
+
       const appData = {
-        id: app.id,
+        // Standard Nexus OS payload fields
         title: app.title,
+        url: targetUrl,
+        icon: app.icon || simpleIcon,
+        
+        // NexusStore extended fields (kept for backward compatibility)
+        id: app.id,
         developer: app.developer,
-        icon: app.icon || null,
         payloadType: activeVersionObj.payloadType,
         appUrl: activeVersionObj.payloadType === 'url' ? activeVersionObj.appUrl : null,
         code: activeVersionObj.payloadType === 'code' ? activeVersionObj.code : null
